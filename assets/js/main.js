@@ -203,7 +203,12 @@
       '<span class="lb-meta"><span class="lb-count"></span>' +
       '<button class="lb-play" type="button" aria-label="Play slideshow" aria-pressed="false">' +
       '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>' +
-      '</button></span></figcaption>' +
+      '</button></span>' +
+      '<span class="lb-speeds" role="group" aria-label="Slideshow speed">' +
+      '<button class="lb-speed" type="button" data-ms="6000" aria-pressed="false">Slow</button>' +
+      '<button class="lb-speed" type="button" data-ms="4000" aria-pressed="true">Normal</button>' +
+      '<button class="lb-speed" type="button" data-ms="2000" aria-pressed="false">Fast</button>' +
+      '</span></figcaption>' +
       "</figure>";
     document.body.appendChild(box);
 
@@ -212,6 +217,8 @@
     const count = box.querySelector(".lb-count");
     const play = box.querySelector(".lb-play");
     const figure = box.querySelector(".lightbox-figure");
+    const speeds = box.querySelector(".lb-speeds");
+    const speedBtns = Array.prototype.slice.call(box.querySelectorAll(".lb-speed"));
     let images = [];
     let title = "";
     let index = 0;
@@ -220,10 +227,38 @@
     let swapTimer = null;
 
     // --- Auto-play slideshow ---
-    const AUTO_MS = 4000; // 4s per screenshot
-    let playing = false; // user toggled autoplay on/off
+    const SPEEDS = [6000, 4000, 2000];
+    const LS_PLAY_KEY = "gaite.lb.play";
+    const LS_SPEED_KEY = "gaite.lb.speed";
+    let speedMs = 4000; // interval in ms (default: Normal)
+    let playing = true; // autoplay preference (persisted)
     let hoverPaused = false; // pointer over the image pauses the cycle
     let autoTimer = null;
+
+    function loadPrefs() {
+      try {
+        const p = window.localStorage.getItem(LS_PLAY_KEY);
+        if (p === "0" || p === "1") playing = p === "1";
+        const s = window.localStorage.getItem(LS_SPEED_KEY);
+        if (s) {
+          const ms = parseInt(s, 10);
+          if (SPEEDS.indexOf(ms) !== -1) speedMs = ms;
+        }
+      } catch (e) { /* storage unavailable — keep defaults */ }
+    }
+    function savePrefs() {
+      try {
+        window.localStorage.setItem(LS_PLAY_KEY, playing ? "1" : "0");
+        window.localStorage.setItem(LS_SPEED_KEY, String(speedMs));
+      } catch (e) { /* ignore */ }
+    }
+    loadPrefs();
+
+    function syncSpeedButtons() {
+      speedBtns.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(parseInt(b.getAttribute("data-ms"), 10) === speedMs));
+      });
+    }
 
     function setPlayButton(on) {
       play.innerHTML = on
@@ -240,7 +275,7 @@
         autoTimer = window.setInterval(function () {
           index++;
           render();
-        }, AUTO_MS);
+        }, speedMs);
       }
     }
 
@@ -248,20 +283,20 @@
       if (prefersReducedMotion || images.length < 2) {
         // Single-shot galleries and reduced-motion visitors get no autoplay
         play.style.display = "none";
-        playing = false;
+        speeds.style.display = "none";
         setPlayButton(false);
         return;
       }
       play.style.display = "";
-      playing = true;
-      setPlayButton(true);
+      speeds.style.display = "";
+      setPlayButton(playing);
+      syncSpeedButtons();
       restartAuto();
     }
 
     function stopAuto() {
       window.clearInterval(autoTimer);
       autoTimer = null;
-      playing = false;
       hoverPaused = false;
     }
 
@@ -345,14 +380,30 @@
     // Manual play/pause toggle (also covers touch + keyboard users).
     play.addEventListener("click", function () {
       playing = !playing;
+      if (playing) hoverPaused = false; // resume immediately even while hovering
       setPlayButton(playing);
+      savePrefs();
       restartAuto();
+    });
+    // Speed control — Slow / Normal / Fast.
+    speedBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        speedMs = parseInt(b.getAttribute("data-ms"), 10);
+        hoverPaused = false; // apply the new speed immediately, like the play button
+        syncSpeedButtons();
+        savePrefs();
+        restartAuto();
+      });
     });
 
     // Keep Tab cycling inside the dialog while it's open
     box.addEventListener("keydown", function (e) {
       if (e.key !== "Tab") return;
-      const buttons = box.querySelectorAll("button");
+      // Only visible buttons participate in the trap (hidden speed buttons
+      // can't receive focus).
+      const buttons = Array.prototype.filter.call(box.querySelectorAll("button"), function (b) {
+        return b.offsetParent !== null;
+      });
       if (!buttons.length) return;
       const first = buttons[0];
       const last = buttons[buttons.length - 1];

@@ -35,9 +35,12 @@ small "screenshot slot ready" hint instead — the site never shows a broken ima
 ## Lightbox auto-play
 
 - The lightbox **auto-plays** through the project's screenshots (one every 4s).
+- **Speed control** under the image: Slow / Normal / Fast (6s / 4s / 2s per shot).
 - **Hover over the image** (or tap the play/pause button under it) to pause;
   the cycle resumes when the pointer leaves the image.
-- Manual prev/next clicks or arrow keys restart the 4s timer from that shot.
+- Manual prev/next clicks or arrow keys restart the timer from that shot.
+- The visitor's play/pause and speed choices are **remembered across opens**
+  (localStorage) — no code changes needed.
 - Single-screenshot projects and `prefers-reduced-motion` visitors get no autoplay.
 
 ## Profile photo
