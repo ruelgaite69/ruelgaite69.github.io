@@ -199,19 +199,71 @@
       "</button>" +
       '<figure class="lightbox-figure">' +
       '<img class="lightbox-img" alt="" />' +
-      '<figcaption class="lightbox-caption"><span class="lb-name"></span><span class="lb-count"></span></figcaption>' +
+      '<figcaption class="lightbox-caption"><span class="lb-name"></span>' +
+      '<span class="lb-meta"><span class="lb-count"></span>' +
+      '<button class="lb-play" type="button" aria-label="Play slideshow" aria-pressed="false">' +
+      '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>' +
+      '</button></span></figcaption>' +
       "</figure>";
     document.body.appendChild(box);
 
     const img = box.querySelector(".lightbox-img");
     const name = box.querySelector(".lb-name");
     const count = box.querySelector(".lb-count");
+    const play = box.querySelector(".lb-play");
+    const figure = box.querySelector(".lightbox-figure");
     let images = [];
     let title = "";
     let index = 0;
     let open = false;
     let lastFocus = null;
     let swapTimer = null;
+
+    // --- Auto-play slideshow ---
+    const AUTO_MS = 4000; // 4s per screenshot
+    let playing = false; // user toggled autoplay on/off
+    let hoverPaused = false; // pointer over the image pauses the cycle
+    let autoTimer = null;
+
+    function setPlayButton(on) {
+      play.innerHTML = on
+        ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+      play.setAttribute("aria-label", on ? "Pause slideshow" : "Play slideshow");
+      play.setAttribute("aria-pressed", String(on));
+    }
+
+    function restartAuto() {
+      window.clearInterval(autoTimer);
+      autoTimer = null;
+      if (playing && !hoverPaused && images.length > 1) {
+        autoTimer = window.setInterval(function () {
+          index++;
+          render();
+        }, AUTO_MS);
+      }
+    }
+
+    function startAuto() {
+      if (prefersReducedMotion || images.length < 2) {
+        // Single-shot galleries and reduced-motion visitors get no autoplay
+        play.style.display = "none";
+        playing = false;
+        setPlayButton(false);
+        return;
+      }
+      play.style.display = "";
+      playing = true;
+      setPlayButton(true);
+      restartAuto();
+    }
+
+    function stopAuto() {
+      window.clearInterval(autoTimer);
+      autoTimer = null;
+      playing = false;
+      hoverPaused = false;
+    }
 
     function render() {
       if (!images.length) return;
@@ -245,6 +297,17 @@
       document.body.style.overflow = "hidden";
       open = true;
       box.querySelector(".lightbox-close").focus();
+      startAuto();
+      // If the pointer is already over the image when the lightbox opens
+      // (e.g. the user clicked the screenshot to open it), the browser may
+      // not fire mouseenter — pause explicitly so autoplay doesn't run
+      // while the visitor is already inspecting the shot.
+      requestAnimationFrame(function () {
+        if (figure.matches(":hover")) {
+          hoverPaused = true;
+          restartAuto();
+        }
+      });
     }
 
     function close() {
@@ -252,6 +315,7 @@
       document.body.style.overflow = "";
       open = false;
       window.clearTimeout(swapTimer);
+      stopAuto();
       if (lastFocus && lastFocus.focus) lastFocus.focus();
     }
 
@@ -262,11 +326,29 @@
     box.querySelector(".lightbox-prev").addEventListener("click", function () {
       index--;
       render();
+      restartAuto(); // manual nav gets a fresh full interval
     });
     box.querySelector(".lightbox-next").addEventListener("click", function () {
       index++;
       render();
+      restartAuto();
     });
+    // Pause the cycle while the pointer sits on the image; resume on leave.
+    figure.addEventListener("mouseenter", function () {
+      hoverPaused = true;
+      restartAuto();
+    });
+    figure.addEventListener("mouseleave", function () {
+      hoverPaused = false;
+      restartAuto();
+    });
+    // Manual play/pause toggle (also covers touch + keyboard users).
+    play.addEventListener("click", function () {
+      playing = !playing;
+      setPlayButton(playing);
+      restartAuto();
+    });
+
     // Keep Tab cycling inside the dialog while it's open
     box.addEventListener("keydown", function (e) {
       if (e.key !== "Tab") return;
@@ -288,9 +370,11 @@
       else if (e.key === "ArrowLeft") {
         index--;
         render();
+        restartAuto();
       } else if (e.key === "ArrowRight") {
         index++;
         render();
+        restartAuto();
       }
     });
 
