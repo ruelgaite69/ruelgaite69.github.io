@@ -21,8 +21,13 @@ Each folder has its own `README.md` describing which view each slot expects.
 
 ## Slot order (per project)
 
-- Slot 1 (e.g. `1.jpeg`) — the **primary shot** (dashboard) → shown large in the project card
-- Remaining files — additional views → shown as clickable thumbnails and in the lightbox gallery
+- Slot 1 (e.g. `1.jpeg`) — the **primary shot** (dashboard) → the only screenshot
+  visible on the project card (large, polished browser frame)
+- Remaining files — additional views → NOT shown on the page; they open in the
+  click-to-explore **lightbox** (the card shows a `View N screenshots` button)
+
+The full list per project lives in the `data-shots` attribute of each
+`.browser-body` in `index.html` (comma-separated, first file = primary).
 
 If a file is missing, that slot is hidden automatically and the card shows a
 small "screenshot slot ready" hint instead — the site never shows a broken image.

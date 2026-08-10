@@ -199,30 +199,45 @@
       "</button>" +
       '<figure class="lightbox-figure">' +
       '<img class="lightbox-img" alt="" />' +
-      '<figcaption class="lightbox-caption"><span class="lb-count"></span><span class="lb-label"></span></figcaption>' +
+      '<figcaption class="lightbox-caption"><span class="lb-name"></span><span class="lb-count"></span></figcaption>' +
       "</figure>";
     document.body.appendChild(box);
 
     const img = box.querySelector(".lightbox-img");
+    const name = box.querySelector(".lb-name");
     const count = box.querySelector(".lb-count");
-    const label = box.querySelector(".lb-label");
     let images = [];
+    let title = "";
     let index = 0;
     let open = false;
     let lastFocus = null;
+    let swapTimer = null;
 
     function render() {
       if (!images.length) return;
       index = (index + images.length) % images.length;
       const item = images[index];
-      img.src = item.src;
-      img.alt = item.label || "";
-      count.textContent = index + 1 + " / " + images.length;
-      label.textContent = item.label || "";
+      name.textContent = title;
+      count.textContent = "Screenshot " + (index + 1) + " / " + images.length;
+      img.alt = (title ? title + " — " : "") + "screenshot " + (index + 1) + " of " + images.length;
+
+      const apply = function () {
+        img.src = item.src;
+        img.classList.remove("is-swapping");
+      };
+      if (!img.src) {
+        apply();
+        return;
+      }
+      // Smooth crossfade when cycling
+      img.classList.add("is-swapping");
+      window.clearTimeout(swapTimer);
+      swapTimer = window.setTimeout(apply, 120);
     }
 
-    function show(list, start, returnTo) {
+    function show(list, start, projectTitle, returnTo) {
       images = list;
+      title = projectTitle || "";
       index = start || 0;
       render();
       lastFocus = returnTo && returnTo.focus ? returnTo : box.querySelector(".lightbox-close");
@@ -236,6 +251,7 @@
       box.classList.remove("is-open");
       document.body.style.overflow = "";
       open = false;
+      window.clearTimeout(swapTimer);
       if (lastFocus && lastFocus.focus) lastFocus.focus();
     }
 
@@ -285,83 +301,110 @@
     const body = media.querySelector(".browser-body");
     const main = media.querySelector(".shot-main");
     const empty = media.querySelector(".shot-empty");
-    const count = media.querySelector(".shot-count");
     const expand = media.querySelector(".shot-expand");
-    const thumbBtns = Array.prototype.slice.call(media.querySelectorAll(".gallery-item"));
-    const thumbs = Array.prototype.slice.call(media.querySelectorAll(".gallery-img"));
+    // The title lives in the sibling .project-body, not inside .project-media
+    const project = media.closest(".project");
+    const titleEl = project && project.querySelector(".project-title");
+    const projectTitle = titleEl ? titleEl.textContent.trim() : "";
+    const extraShots = body && body.getAttribute("data-shots")
+      ? body.getAttribute("data-shots")
+          .split(",")
+          .map(function (s) { return s.trim(); })
+          .filter(Boolean)
+      : [];
 
-    // Unique, loaded screenshots: [{ src, label, button }]
+    // Loaded screenshots, in order: primary first, then data-shots.
     let images = [];
     let current = 0;
+    let settled = false;
 
-    function loaded(img) {
-      return !img.classList.contains("is-missing") && img.complete && img.naturalWidth > 0;
+    function register(src) {
+      if (!images.some(function (im) { return im.src === src; })) {
+        images.push({ src: src });
+      }
     }
 
-    function refresh() {
-      const seen = {};
-      images = [];
-
-      if (main && loaded(main)) {
-        main.classList.add("is-loaded");
-        images.push({ src: main.src, label: main.alt, button: null });
-        seen[main.src] = true;
-        if (empty) empty.style.display = "none";
-      } else if (empty) {
-        empty.style.display = "";
-      }
-
-      thumbs.forEach(function (thumb, i) {
-        if (!loaded(thumb) || seen[thumb.src]) return;
-        seen[thumb.src] = true;
-        images.push({
-          src: thumb.src,
-          label: (thumbBtns[i] && thumbBtns[i].getAttribute("aria-label")) || "",
-          button: thumbBtns[i],
-        });
-      });
-
+    function finish() {
+      if (settled) return;
+      settled = true;
       const hasImages = images.length > 0;
       if (body) body.classList.toggle("is-empty", !hasImages);
-      if (count) count.hidden = !hasImages;
-      if (count && hasImages) {
-        current = Math.min(current, images.length - 1);
-        count.textContent = current + 1 + " / " + images.length;
+
+      // If the primary file is missing, promote the first available shot.
+      if (main && hasImages && main.classList.contains("is-missing")) {
+        main.src = images[0].src;
+        main.alt = projectTitle + " screenshot";
+        main.classList.remove("is-missing");
+        main.classList.add("is-loaded");
       }
 
-      thumbBtns.forEach(function (btn) {
-        const cur = images[current];
-        let active = !!cur && cur.button === btn;
-        // The main shot has no button — match by src so slot 1 stays highlighted.
-        if (cur && !cur.button) {
-          const thumbImg = btn.querySelector("img");
-          active = !!thumbImg && thumbImg.src === cur.src;
+      if (expand) {
+        if (hasImages) {
+          const n = images.length;
+          const label = "View " + n + (n === 1 ? " screenshot" : " screenshots");
+          expand.setAttribute("aria-label", projectTitle + " — " + label);
+          expand.innerHTML =
+            '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>' +
+            label;
+        } else {
+          expand.style.display = "none";
         }
-        btn.classList.toggle("is-active", active);
-      });
+      }
     }
+
+    function resolveMain() {
+      if (!main) return;
+      if (!main.complete) return; // still loading — wait for the event
+      if (!main.classList.contains("is-missing") && main.naturalWidth > 0) {
+        main.classList.add("is-loaded");
+        register(main.src);
+        if (empty) empty.style.display = "none";
+      }
+      done();
+    }
+
+    // Probe every screenshot in data-shots (including the primary) so the
+    // lightbox lists all real files even before the lazy <img> has loaded.
+    // register() dedupes by resolved URL, so probing the primary is harmless.
+    const probes = extraShots;
+    let toResolve = (main ? 1 : 0) + probes.length;
+
+    function done() {
+      toResolve--;
+      if (toResolve === 0) finish();
+    }
+
+    probes.forEach(function (src) {
+      const probe = new Image();
+      probe.onload = function () {
+        // Use probe.src (resolved URL) so the main image and this probe
+        // produce identical src strings and register() can dedupe them.
+        register(probe.src);
+        done();
+      };
+      probe.onerror = function () {
+        done();
+      };
+      probe.src = src;
+    });
+
+    if (main) {
+      main.addEventListener("load", resolveMain);
+      main.addEventListener("error", resolveMain);
+      resolveMain(); // completes immediately if already loaded/cached
+    }
+    if (toResolve === 0) finish();
+
+    // Safety net: settle with whatever has loaded if a probe stalls.
+    window.setTimeout(function () {
+      if (!settled) finish();
+    }, 3000);
 
     function openAt(i) {
       if (!images.length) return;
       current = (i + images.length) % images.length;
-      refresh();
-      lightbox.show(
-        images.map(function (item) {
-          return { src: item.src, label: item.label };
-        }),
-        current,
-        expand || (images[current] && images[current].button) || null
-      );
+      lightbox.show(images, current, projectTitle, expand || null);
     }
-
-    if (main) {
-      main.addEventListener("load", refresh);
-      main.addEventListener("error", refresh);
-    }
-    thumbs.forEach(function (thumb) {
-      thumb.addEventListener("load", refresh);
-      thumb.addEventListener("error", refresh);
-    });
 
     if (expand) {
       expand.addEventListener("click", function () {
@@ -375,24 +418,6 @@
         }
       });
     }
-
-    thumbBtns.forEach(function (btn, i) {
-      btn.addEventListener("click", function () {
-        if (!images.length) return;
-        let idx = -1;
-        images.forEach(function (item, j) {
-          if (item.button === btn) idx = j;
-        });
-        current = idx === -1 ? i : idx;
-        if (main && images[current]) {
-          main.src = images[current].src;
-          main.alt = images[current].label;
-        }
-        refresh();
-      });
-    });
-
-    refresh();
   });
 
   /* ==========================================================
@@ -449,10 +474,7 @@
      7. GitHub — live API with honest fallback
      ========================================================== */
   const GH_USER = "ruelgaite69";
-  const GITHUB_PROFILE = "https://github.com/" + GH_USER;  /* ==========================================================
-     5c. Project links — Live Demo buttons are hardcoded in
-     index.html (#projects) with real, working URLs.
-     ========================================================== */
+  const GITHUB_PROFILE = "https://github.com/" + GH_USER;
   const gh = {
     avatar: document.getElementById("ghAvatar"),
     name: document.getElementById("ghName"),
