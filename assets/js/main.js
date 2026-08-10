@@ -199,7 +199,9 @@
       "</button>" +
       '<figure class="lightbox-figure">' +
       '<img class="lightbox-img" alt="" />' +
-      '<figcaption class="lightbox-caption"><span class="lb-name"></span>' +
+      '<figcaption class="lightbox-caption">' +
+      '<span class="lb-badge" hidden>Capstone Project</span>' +
+      '<span class="lb-name"></span>' +
       '<span class="lb-meta"><span class="lb-count"></span>' +
       '<button class="lb-play" type="button" aria-label="Play slideshow" aria-pressed="false">' +
       '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>' +
@@ -217,6 +219,7 @@
     const count = box.querySelector(".lb-count");
     const play = box.querySelector(".lb-play");
     const figure = box.querySelector(".lightbox-figure");
+    const badge = box.querySelector(".lb-badge");
     const speeds = box.querySelector(".lb-speeds");
     const speedBtns = Array.prototype.slice.call(box.querySelectorAll(".lb-speed"));
     let images = [];
@@ -234,6 +237,7 @@
     let playing = true; // autoplay preference (persisted)
     let hoverPaused = false; // pointer over the image pauses the cycle
     let autoTimer = null;
+    let capstone = false; // true when the open project is a capstone project
 
     function loadPrefs() {
       try {
@@ -322,9 +326,11 @@
       swapTimer = window.setTimeout(apply, 120);
     }
 
-    function show(list, start, projectTitle, returnTo) {
+    function show(list, start, projectTitle, returnTo, isCapstone) {
       images = list;
       title = projectTitle || "";
+      capstone = !!isCapstone;
+      if (badge) badge.hidden = !capstone;
       index = start || 0;
       render();
       lastFocus = returnTo && returnTo.focus ? returnTo : box.querySelector(".lightbox-close");
@@ -538,7 +544,13 @@
     function openAt(i) {
       if (!images.length) return;
       current = (i + images.length) % images.length;
-      lightbox.show(images, current, projectTitle, expand || null);
+      lightbox.show(
+        images,
+        current,
+        projectTitle,
+        expand || null,
+        project.hasAttribute("data-capstone")
+      );
     }
 
     if (expand) {

@@ -1034,6 +1034,27 @@ strong { color: var(--text); font-weight: 600; }
 
 /* --- Project body --- */
 .project-body { min-width: 0; }
+
+/* Capstone badge — highlights the academic capstone project on its card */
+.capstone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0a0a12;
+  background: var(--grad);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset, 0 8px 24px -10px rgba(52, 211, 153, 0.55);
+  width: fit-content;
+}
+.capstone-badge svg { flex-shrink: 0; }
+
 .project-tag {
   font-family: var(--mono);
   font-size: 0.74rem;
@@ -1123,6 +1144,20 @@ strong { color: var(--text); font-weight: 600; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.lightbox-caption .lb-badge {
+  justify-self: center;
+  margin-bottom: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.08);
+}
+.lightbox-caption .lb-badge[hidden] { display: none; }
 .lightbox-caption .lb-count {
   color: var(--accent);
 }

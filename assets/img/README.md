@@ -7,7 +7,7 @@ Drop the files in and they appear automatically — **no code changes needed.**
 
 | Folder                    | Project                          | Files          |
 | ------------------------- | -------------------------------- | -------------- |
-| `assets/img/clinictooth/` | ClinicTooth (dental health system) | `1.jpeg`, `2.jpeg`, `3.jpeg`, `4.png`, `Front page.png` |
+| `assets/img/clinictooth/` | ClinicTooth (capstone dental health system) | `Front page.png`, `1.jpeg`, `2.jpeg`, `3.jpeg`, `4.png` |
 | `assets/img/rsg/`         | RSG Inventory Management System    | `1.jpeg`…`4.jpeg` |
 
 Each folder has its own `README.md` describing which view each slot expects.
@@ -21,8 +21,9 @@ Each folder has its own `README.md` describing which view each slot expects.
 
 ## Slot order (per project)
 
-- Slot 1 (e.g. `1.jpeg`) — the **primary shot** (dashboard) → the only screenshot
-  visible on the project card (large, polished browser frame)
+- Slot 1 — the **primary shot** (ClinicTooth: `Front page.png`; RSG: `1.jpeg`
+  dashboard) → the only screenshot visible on the project card (large, polished
+  browser frame), and the first image the lightbox opens on
 - Remaining files — additional views → NOT shown on the page; they open in the
   click-to-explore **lightbox** (the card shows a `View N screenshots` button)
 
