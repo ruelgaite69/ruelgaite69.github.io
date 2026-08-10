@@ -175,25 +175,224 @@
   }
 
   /* ==========================================================
-     5b. Project screenshots — auto-detect real images
+     5b. Project screenshots — gallery + lightbox
+     ----------------------------------------------------------
+     Each project keeps its real screenshots in its own folder
+     (assets/img/clinictooth/, assets/img/rsg/) named 1.png…4.png.
+     Missing files are hidden automatically — no code changes needed.
      ========================================================== */
-  function showShot(img) {
-    img.classList.add("is-loaded");
-    const shot = img.closest(".project-shot");
-    const tag = shot && shot.querySelector(".shot-tag");
-    if (tag) tag.textContent = "Live screenshot";
-  }
+  const lightbox = (function () {
+    const box = document.createElement("div");
+    box.className = "lightbox";
+    box.setAttribute("role", "dialog");
+    box.setAttribute("aria-modal", "true");
+    box.setAttribute("aria-label", "Project screenshot preview");
+    box.innerHTML =
+      '<button class="lightbox-btn lightbox-close" type="button" aria-label="Close preview">' +
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+      "</button>" +
+      '<button class="lightbox-btn lightbox-prev" type="button" aria-label="Previous screenshot">' +
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>' +
+      "</button>" +
+      '<button class="lightbox-btn lightbox-next" type="button" aria-label="Next screenshot">' +
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>' +
+      "</button>" +
+      '<figure class="lightbox-figure">' +
+      '<img class="lightbox-img" alt="" />' +
+      '<figcaption class="lightbox-caption"><span class="lb-count"></span><span class="lb-label"></span></figcaption>' +
+      "</figure>";
+    document.body.appendChild(box);
 
-  document.querySelectorAll(".project-img").forEach(function (img) {
-    if (img.classList.contains("is-missing")) return;
-    // Already loaded (cache / fast path) — apply immediately
-    if (img.complete && img.naturalWidth > 0) {
-      showShot(img);
-    } else {
-      img.addEventListener("load", function () {
-        showShot(img);
+    const img = box.querySelector(".lightbox-img");
+    const count = box.querySelector(".lb-count");
+    const label = box.querySelector(".lb-label");
+    let images = [];
+    let index = 0;
+    let open = false;
+    let lastFocus = null;
+
+    function render() {
+      if (!images.length) return;
+      index = (index + images.length) % images.length;
+      const item = images[index];
+      img.src = item.src;
+      img.alt = item.label || "";
+      count.textContent = index + 1 + " / " + images.length;
+      label.textContent = item.label || "";
+    }
+
+    function show(list, start, returnTo) {
+      images = list;
+      index = start || 0;
+      render();
+      lastFocus = returnTo && returnTo.focus ? returnTo : box.querySelector(".lightbox-close");
+      box.classList.add("is-open");
+      document.body.style.overflow = "hidden";
+      open = true;
+      box.querySelector(".lightbox-close").focus();
+    }
+
+    function close() {
+      box.classList.remove("is-open");
+      document.body.style.overflow = "";
+      open = false;
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    box.addEventListener("click", function (e) {
+      if (e.target === box) close();
+    });
+    box.querySelector(".lightbox-close").addEventListener("click", close);
+    box.querySelector(".lightbox-prev").addEventListener("click", function () {
+      index--;
+      render();
+    });
+    box.querySelector(".lightbox-next").addEventListener("click", function () {
+      index++;
+      render();
+    });
+    // Keep Tab cycling inside the dialog while it's open
+    box.addEventListener("keydown", function (e) {
+      if (e.key !== "Tab") return;
+      const buttons = box.querySelectorAll("button");
+      if (!buttons.length) return;
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (!open) return;
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowLeft") {
+        index--;
+        render();
+      } else if (e.key === "ArrowRight") {
+        index++;
+        render();
+      }
+    });
+
+    return { show: show, close: close };
+  })();
+
+  document.querySelectorAll(".project-media").forEach(function (media) {
+    const body = media.querySelector(".browser-body");
+    const main = media.querySelector(".shot-main");
+    const empty = media.querySelector(".shot-empty");
+    const count = media.querySelector(".shot-count");
+    const expand = media.querySelector(".shot-expand");
+    const thumbBtns = Array.prototype.slice.call(media.querySelectorAll(".gallery-item"));
+    const thumbs = Array.prototype.slice.call(media.querySelectorAll(".gallery-img"));
+
+    // Unique, loaded screenshots: [{ src, label, button }]
+    let images = [];
+    let current = 0;
+
+    function loaded(img) {
+      return !img.classList.contains("is-missing") && img.complete && img.naturalWidth > 0;
+    }
+
+    function refresh() {
+      const seen = {};
+      images = [];
+
+      if (main && loaded(main)) {
+        main.classList.add("is-loaded");
+        images.push({ src: main.src, label: main.alt, button: null });
+        seen[main.src] = true;
+        if (empty) empty.style.display = "none";
+      } else if (empty) {
+        empty.style.display = "";
+      }
+
+      thumbs.forEach(function (thumb, i) {
+        if (!loaded(thumb) || seen[thumb.src]) return;
+        seen[thumb.src] = true;
+        images.push({
+          src: thumb.src,
+          label: (thumbBtns[i] && thumbBtns[i].getAttribute("aria-label")) || "",
+          button: thumbBtns[i],
+        });
+      });
+
+      const hasImages = images.length > 0;
+      if (body) body.classList.toggle("is-empty", !hasImages);
+      if (count) count.hidden = !hasImages;
+      if (count && hasImages) {
+        current = Math.min(current, images.length - 1);
+        count.textContent = current + 1 + " / " + images.length;
+      }
+
+      thumbBtns.forEach(function (btn) {
+        const cur = images[current];
+        let active = !!cur && cur.button === btn;
+        // The main shot has no button — match by src so slot 1 stays highlighted.
+        if (cur && !cur.button) {
+          const thumbImg = btn.querySelector("img");
+          active = !!thumbImg && thumbImg.src === cur.src;
+        }
+        btn.classList.toggle("is-active", active);
       });
     }
+
+    function openAt(i) {
+      if (!images.length) return;
+      current = (i + images.length) % images.length;
+      refresh();
+      lightbox.show(
+        images.map(function (item) {
+          return { src: item.src, label: item.label };
+        }),
+        current,
+        expand || (images[current] && images[current].button) || null
+      );
+    }
+
+    if (main) {
+      main.addEventListener("load", refresh);
+      main.addEventListener("error", refresh);
+    }
+    thumbs.forEach(function (thumb) {
+      thumb.addEventListener("load", refresh);
+      thumb.addEventListener("error", refresh);
+    });
+
+    if (expand) {
+      expand.addEventListener("click", function () {
+        openAt(current);
+      });
+    }
+    if (body) {
+      body.addEventListener("click", function (e) {
+        if (e.target === body || e.target === main || e.target.closest(".shot-empty")) {
+          openAt(current);
+        }
+      });
+    }
+
+    thumbBtns.forEach(function (btn, i) {
+      btn.addEventListener("click", function () {
+        if (!images.length) return;
+        let idx = -1;
+        images.forEach(function (item, j) {
+          if (item.button === btn) idx = j;
+        });
+        current = idx === -1 ? i : idx;
+        if (main && images[current]) {
+          main.src = images[current].src;
+          main.alt = images[current].label;
+        }
+        refresh();
+      });
+    });
+
+    refresh();
   });
 
   /* ==========================================================
@@ -251,57 +450,9 @@
      ========================================================== */
   const GH_USER = "ruelgaite69";
   const GITHUB_PROFILE = "https://github.com/" + GH_USER;  /* ==========================================================
-     5c. Project card links — fill PROJECT_LINKS in once
-     repositories are public (or a live demo exists). Until then:
-     • repo stays empty → button links to your GitHub profile
-     • demo stays empty → Live Demo button is not rendered
-     No dead links, no fake buttons.
+     5c. Project links — Live Demo buttons are hardcoded in
+     index.html (#projects) with real, working URLs.
      ========================================================== */
-  const PROJECT_LINKS = {
-    clinictooth: {
-      repo: "", // e.g. "https://github.com/ruelgaite69/clinictooth"
-      demo: "", // e.g. "https://clinictooth.app"
-    },
-    starkson: {
-      repo: "", // e.g. "https://github.com/ruelgaite69/starkson-website"
-      demo: "", // e.g. "https://starkson-packaging.com"
-    },
-    loonadev: {
-      repo: "", // e.g. "https://github.com/ruelgaite69/loonadev"
-      demo: "", // e.g. "https://loonadev.com"
-    },
-  };
-
-  function applyProjectLinks() {
-    document.querySelectorAll(".project[data-project]").forEach(function (project) {
-      const key = project.dataset.project;
-      const links = PROJECT_LINKS[key] || {};
-      const actions = project.querySelector(".project-actions");
-      if (!actions) return;
-
-      const repoBtn = actions.querySelector(".btn-primary");
-      if (repoBtn) repoBtn.href = links.repo || GITHUB_PROFILE;
-
-      // Live Demo — only rendered when a URL is configured
-      if (links.demo) {
-        const demo = document.createElement("a");
-        demo.className = "btn btn-ghost btn-sm";
-        demo.href = links.demo;
-        demo.target = "_blank";
-        demo.rel = "noopener";
-        demo.innerHTML =
-          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
-          "Live Demo";
-        if (repoBtn) repoBtn.insertAdjacentElement("afterend", demo);
-        else actions.appendChild(demo);
-      }
-
-      // Drop the "on request" note once a real repository is linked
-      const note = project.querySelector(".project-note");
-      if (note && links.repo) note.remove();
-    });
-  }
-  applyProjectLinks();
   const gh = {
     avatar: document.getElementById("ghAvatar"),
     name: document.getElementById("ghName"),
@@ -437,11 +588,14 @@
       });
   }
 
+  function renderSoonProjects() {
+    gh.grid.appendChild(renderSoonCard("ClinicTooth", "Dental health management system for the Cavite Dental Chapter Organization."));
+    gh.grid.appendChild(renderSoonCard("RSG Inventory Management System", "Web-based inventory management platform for construction heavy equipment trading & services."));
+  }
+
   function renderFallback() {
     gh.grid.innerHTML = "";
-    gh.grid.appendChild(renderSoonCard("ClinicTooth", "Dental health management system for the Cavite Dental Chapter Organization."));
-    gh.grid.appendChild(renderSoonCard("Starkson Packaging Website", "Company website developed during my internship at Starkson Packaging Inc."));
-    gh.grid.appendChild(renderSoonCard("LoonaDev Projects", "Websites, web applications, and SaaS-oriented solutions built under LoonaDev."));
+    renderSoonProjects();
     gh.note.textContent =
       "Live GitHub data couldn't be loaded right now. This section connects automatically " +
       "once the API responds — meanwhile, here's what's on the way.";
@@ -490,9 +644,7 @@
           "Live data from the GitHub API. Pushed repositories appear here automatically.";
       } else {
         // Account exists but no public repos yet — honest "on the way" state.
-        gh.grid.appendChild(renderSoonCard("ClinicTooth", "Dental health management system for the Cavite Dental Chapter Organization."));
-        gh.grid.appendChild(renderSoonCard("Starkson Packaging Website", "Company website developed during my internship at Starkson Packaging Inc."));
-        gh.grid.appendChild(renderSoonCard("LoonaDev Projects", "Websites, web applications, and SaaS-oriented solutions built under LoonaDev."));
+        renderSoonProjects();
         gh.note.textContent =
           "The profile is real — public repositories are on the way. This section updates " +
           "automatically the moment code is pushed.";

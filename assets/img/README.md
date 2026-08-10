@@ -1,25 +1,31 @@
 # Project screenshots
 
-Drop real screenshots into this folder to replace the CSS concept previews —
-**no code changes needed.** The site detects the files automatically.
+Each featured project keeps its **real screenshots** in its own folder.
+Drop the files in and they appear automatically — **no code changes needed.**
 
-## Expected filenames
+## Folders & naming
 
-| File              | Used for                  |
-| ----------------- | ------------------------- |
-| `clinictooth.png` | ClinicTooth (dashboard view works best) |
-| `starkson.png`    | Starkson Packaging website |
-| `loonadev.png`    | LoonaDev web projects      |
+| Folder                    | Project                          | Files          |
+| ------------------------- | -------------------------------- | -------------- |
+| `assets/img/clinictooth/` | ClinicTooth (dental health system) | `1.jpeg`, `2.jpeg`, `3.jpeg`, `4.png`, `Front page.png` |
+| `assets/img/rsg/`         | RSG Inventory Management System    | `1.jpeg`…`4.jpeg` |
+
+Each folder has its own `README.md` describing which view each slot expects.
 
 ## Recommended format
 
-- PNG or JPG
+- PNG or JPG, any sensible filename — the card references the actual filenames
 - Landscape, ~1600 × 1000 (16:10) or wider
-- Images display with `object-fit: cover` inside the fixed browser frame, so
-  wide, top-aligned crops are ideal
+- Images display with `object-fit: cover` inside the browser frame (wide,
+  top-aligned crops are ideal) and full-size in the click-to-expand lightbox
 
-Until a file exists, the card shows its built-in CSS concept preview instead —
-so the site never shows a broken image.
+## Slot order (per project)
+
+- Slot 1 (e.g. `1.jpeg`) — the **primary shot** (dashboard) → shown large in the project card
+- Remaining files — additional views → shown as clickable thumbnails and in the lightbox gallery
+
+If a file is missing, that slot is hidden automatically and the card shows a
+small "screenshot slot ready" hint instead — the site never shows a broken image.
 
 ## Profile photo
 

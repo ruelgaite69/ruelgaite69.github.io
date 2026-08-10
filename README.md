@@ -117,8 +117,8 @@ no Actions workflow needed. Future updates are just `git add . && git commit && 
 | About text | `#about` section |
 | Skills | `#skills` section |
 | Projects (descriptions, features, tech) | `#projects` section |
-| Project repo & live demo links | `PROJECT_LINKS` config at the top of `assets/js/main.js` (fill in once repos are public; empty = falls back to profile / hides the demo button) |
-| Project screenshots | Drop files into `assets/img/` (see [assets/img/README.md](assets/img/README.md)) |
+| Project demo links (Live Demo buttons) | Hardcoded in the `#projects` section of `index.html` (both demos are live) |
+| Project screenshots | Drop real screenshots into `assets/img/clinictooth/` and `assets/img/rsg/` (see [assets/img/README.md](assets/img/README.md)) |
 | Profile photo | Drop `graduation-photo.jpg` into `assets/img/` (About section + hero avatar) |
 | GitHub section | Auto-fetches from `https://api.github.com/users/ruelgaite69` — no manual sync |
 | Colors / theme | CSS variables at the top of `assets/css/styles.css` |
